@@ -6,7 +6,7 @@
 
 Type anything — your name, a mood, a password you'll never use — and Sigil turns it into a one-of-a-kind piece of generative art. The same word **always** produces the same artwork, so you can share a piece just by sharing the word.
 
-**[▶ Live demo](https://you.github.io/sigil)** · No install · No backend · No tracking · One HTML file
+**[▶ Live demo](https://imjkrao.github.io/sigil)** · No install · No backend · No tracking · One HTML file
 
 <!-- Replace with a real GIF/screenshot of your art. This is the single most important thing for stars. -->
 <!-- ![Sigil demo](docs/demo.gif) -->
