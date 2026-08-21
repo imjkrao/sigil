@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sigil — every word has a shape</title>
+<meta name="description" content="Turn any word into a one-of-a-kind, reproducible artwork. Deterministic, shareable, yours." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0b0d17;
+    --bg2:#0f1120;
+    --panel:#14172a;
+    --panel2:#191d33;
+    --line:rgba(255,255,255,.08);
+    --line2:rgba(255,255,255,.14);
+    --ink:#ece9f5;
+    --muted:#8a8aab;
+    --muted2:#5f6084;
+    --brass:#ddb35f;
+    --brass-dim:#a4813a;
+    --danger:#e0745f;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(1200px 700px at 78% -10%, #171a30 0%, transparent 60%),
+      radial-gradient(900px 600px at 0% 110%, #14162a 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Space Grotesk",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100%;
+    display:flex;flex-direction:column;
+  }
+  a{color:inherit}
+
+  /* ---------- top bar ---------- */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:16px;padding:18px clamp(16px,4vw,40px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:baseline;gap:14px;min-width:0}
+  .mark{
+    font-weight:700;font-size:22px;letter-spacing:.42em;
+    text-transform:uppercase;padding-left:.42em;
+    display:flex;align-items:center;gap:.7ch;
+  }
+  .mark .dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--brass);box-shadow:0 0 14px 1px rgba(221,179,95,.6);
+    transform:translateY(-1px);
+  }
+  .tag{
+    font-size:12.5px;color:var(--muted);letter-spacing:.02em;
+    font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .ghlink{
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);
+    text-decoration:none;border:1px solid var(--line);padding:8px 12px;border-radius:9px;
+    display:inline-flex;align-items:center;gap:8px;transition:.18s;white-space:nowrap;
+  }
+  .ghlink:hover{color:var(--ink);border-color:var(--line2);background:var(--panel)}
+
+  /* ---------- layout ---------- */
+  main{
+    flex:1;display:flex;gap:clamp(16px,2.4vw,30px);
+    padding:clamp(16px,3vw,34px) clamp(16px,4vw,40px);
+    align-items:flex-start;
+  }
+  .stage{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .frame{
+    position:relative;width:100%;max-width:min(74vh,720px);aspect-ratio:1/1;
+    border-radius:var(--r);overflow:hidden;
+    border:1px solid var(--line2);
+    box-shadow:0 40px 80px -30px rgba(0,0,0,.8), 0 0 0 1px rgba(0,0,0,.4) inset;
+    background:#000;
+  }
+  canvas{display:block;width:100%;height:100%}
+  .readout{
+    display:flex;gap:18px;flex-wrap:wrap;justify-content:center;
+    font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--muted2);
+    letter-spacing:.04em;
+  }
+  .readout b{color:var(--muted);font-weight:500}
+
+  /* ---------- control rail ---------- */
+  aside{
+    width:322px;flex:none;
+    background:linear-gradient(180deg,var(--panel) 0%,var(--bg2) 100%);
+    border:1px solid var(--line);border-radius:var(--r);
+    padding:22px;display:flex;flex-direction:column;gap:22px;
+    box-shadow:0 30px 60px -34px rgba(0,0,0,.7);
+  }
+  .field label,.legend{
+    display:block;font-family:"JetBrains Mono",monospace;
+    font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--muted2);margin-bottom:10px;
+  }
+  .seedrow{display:flex;align-items:center;gap:0;border:1px solid var(--line2);border-radius:11px;background:var(--bg);overflow:hidden;transition:.18s}
+  .seedrow:focus-within{border-color:var(--brass-dim);box-shadow:0 0 0 3px rgba(221,179,95,.14)}
+  .seedrow .caret{padding:0 4px 0 14px;color:var(--brass);font-family:"JetBrains Mono",monospace;font-weight:700}
+  #seed{
+    flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--ink);
+    font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:500;
+    padding:13px 12px 13px 6px;letter-spacing:.01em;
+  }
+  #dice{
+    flex:none;border:0;border-left:1px solid var(--line);background:transparent;
+    color:var(--muted);cursor:pointer;font-size:16px;padding:0 14px;align-self:stretch;transition:.16s;
+  }
+  #dice:hover{color:var(--brass);background:var(--panel2)}
+
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mode{
+    font-family:"Space Grotesk";font-size:13px;font-weight:500;color:var(--muted);
+    background:var(--bg);border:1px solid var(--line);border-radius:10px;
+    padding:11px 8px;cursor:pointer;transition:.15s;text-align:left;
+    display:flex;flex-direction:column;gap:2px;line-height:1.1;
+  }
+  .mode small{font-family:"JetBrains Mono";font-size:9px;letter-spacing:.12em;color:var(--muted2);text-transform:uppercase}
+  .mode:hover{border-color:var(--line2);color:var(--ink)}
+  .mode.active{border-color:var(--brass-dim);color:var(--ink);background:linear-gradient(180deg,rgba(221,179,95,.13),rgba(221,179,95,.03))}
+  .mode.active small{color:var(--brass)}
+  .mode.wide{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}
+
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:3px;
+    background:var(--line2);outline:0;margin:6px 0;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:17px;height:17px;border-radius:50%;
+    background:var(--brass);cursor:pointer;border:3px solid var(--bg);
+    box-shadow:0 0 0 1px var(--brass-dim);transition:.12s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--brass);cursor:pointer;border:3px solid var(--bg)}
+  .rangewrap{display:flex;align-items:center;gap:12px}
+  .rangeval{font-family:"JetBrains Mono";font-size:12px;color:var(--brass);width:34px;text-align:right}
+
+  .actions{display:flex;flex-direction:column;gap:10px;margin-top:2px}
+  .btn{
+    font-family:"Space Grotesk";font-size:14px;font-weight:600;cursor:pointer;
+    padding:13px;border-radius:11px;border:1px solid var(--line2);
+    background:var(--panel2);color:var(--ink);transition:.16s;
+    display:flex;align-items:center;justify-content:center;gap:9px;
+  }
+  .btn:hover{border-color:var(--line2);background:#20243d}
+  .btn.primary{background:var(--brass);color:#20170a;border-color:var(--brass)}
+  .btn.primary:hover{background:#e7c079;box-shadow:0 8px 24px -8px rgba(221,179,95,.5)}
+  .btn svg{width:16px;height:16px}
+  .divider{height:1px;background:var(--line);margin:-2px 0}
+
+  footer{
+    padding:16px clamp(16px,4vw,40px);border-top:1px solid var(--line);
+    font-family:"JetBrains Mono";font-size:11px;color:var(--muted2);letter-spacing:.03em;
+    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  }
+  footer a{color:var(--muted);text-decoration:none}
+  footer a:hover{color:var(--brass)}
+
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);
+    background:var(--ink);color:#12131f;font-family:"JetBrains Mono";font-size:12.5px;font-weight:500;
+    padding:11px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:.25s;
+    box-shadow:0 14px 40px -10px rgba(0,0,0,.6);z-index:50;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  :focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+  @media (max-width:860px){
+    main{flex-direction:column;align-items:stretch}
+    aside{width:100%}
+    .frame{max-width:none}
+    .tag{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="mark"><span class="dot"></span>Sigil</div>
+      <div class="tag">every word has a shape · deterministic generative art</div>
+    </div>
+    <a class="ghlink" id="ghlink" href="#" target="_blank" rel="noopener">
+      ★ Star on GitHub
+    </a>
+  </header>
+
+  <main>
+    <section class="stage">
+      <div class="frame">
+        <canvas id="art" width="1080" height="1080"></canvas>
+      </div>
+      <div class="readout">
+        <span><b>seed</b> <span id="rSeed">—</span></span>
+        <span><b>mode</b> <span id="rMode">—</span></span>
+        <span><b>palette</b> <span id="rPal">—</span></span>
+      </div>
+    </section>
+
+    <aside>
+      <div class="field">
+        <label for="seed">Seed — type anything</label>
+        <div class="seedrow">
+          <span class="caret">&#10095;</span>
+          <input id="seed" spellcheck="false" autocomplete="off" value="aurora" />
+          <button id="dice" title="Random seed" aria-label="Random seed">&#9860;</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="legend">Form</span>
+        <div class="modes" id="modes">
+          <button class="mode wide" data-mode="auto"><span>Auto</span><small>seed decides</small></button>
+          <button class="mode" data-mode="flow"><span>Flow</span><small>field</small></button>
+          <button class="mode" data-mode="orbit"><span>Orbit</span><small>curves</small></button>
+          <button class="mode" data-mode="bloom"><span>Bloom</span><small>packing</small></button>
+          <button class="mode" data-mode="strata"><span>Strata</span><small>lattice</small></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="legend">Density</span>
+        <div class="rangewrap">
+          <input type="range" id="density" min="1" max="10" value="6" />
+          <span class="rangeval" id="densityVal">6</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="actions">
+        <button class="btn primary" id="export">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export PNG
+        </button>
+        <button class="btn" id="share">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          Copy share link
+        </button>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    <span>Sigil · same seed, same art, forever · no tracking, no backend</span>
+    <span><a href="#" id="ghlink2" target="_blank" rel="noopener">github.com/you/sigil</a></span>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Sigil — deterministic generative art from a text seed.
+   Single file, zero dependencies. Same seed → same artwork.
+   ============================================================ */
+
+/* ---- seeded PRNG ---- */
+function xmur3(str){
+  let h=1779033703^str.length;
+  for(let i=0;i<str.length;i++){
+    h=Math.imul(h^str.charCodeAt(i),3432918353);
+    h=(h<<13)|(h>>>19);
+  }
+  return function(){
+    h=Math.imul(h^(h>>>16),2246822507);
+    h=Math.imul(h^(h>>>13),3266489909);
+    return (h^=h>>>16)>>>0;
+  };
+}
+function mulberry32(a){
+  return function(){
+    a|=0;a=(a+0x6D2B79F5)|0;
+    let t=Math.imul(a^(a>>>15),1|a);
+    t=(t+Math.imul(t^(t>>>7),61|t))^t;
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+function makeRng(seedStr){
+  const s=xmur3(seedStr||" ");
+  const r=mulberry32(s());
+  r.range=(a,b)=>a+(b-a)*r();
+  r.int=(a,b)=>Math.floor(r.range(a,b+1));
+  r.pick=arr=>arr[Math.floor(r()*arr.length)];
+  r.chance=p=>r()<p;
+  return r;
+}
+
+/* ---- palette from seed ---- */
+function hsl(h,s,l){return `hsl(${((h%360)+360)%360} ${s}% ${l}%)`;}
+function buildPalette(rng){
+  const base=rng.range(0,360);
+  const schemes=[
+    ()=>[0,30,-30,60,-60],          // analogous
+    ()=>[0,120,240],                // triad
+    ()=>[0,180,20,200],             // complementary pairs
+    ()=>[0,150,210],                // split-complement
+    ()=>[0,40,80,-40],              // warm spread
+  ];
+  const offs=rng.pick(schemes)();
+  const sat=rng.range(55,88);
+  const dark=rng.chance(0.72);
+  const colors=[];
+  for(const o of offs){
+    const l=dark?rng.range(45,72):rng.range(38,60);
+    colors.push(hsl(base+o+rng.range(-8,8),sat*rng.range(.75,1),l));
+  }
+  // a couple of tints/shades for richness
+  colors.push(hsl(base+rng.range(-20,20),sat*.5,dark?82:70));
+  const bg = dark
+    ? hsl(base+rng.range(-25,25),rng.range(18,40),rng.range(5,10))
+    : hsl(base+rng.range(-25,25),rng.range(12,26),rng.range(90,95));
+  const ink = dark?colors:colors;
+  return {base,bg,dark,colors:ink,name:paletteName(base,dark)};
+}
+function paletteName(h,dark){
+  const names=[[15,"ember"],[45,"brass"],[75,"citron"],[110,"fern"],[150,"jade"],
+    [190,"teal"],[220,"cobalt"],[255,"indigo"],[290,"violet"],[325,"magenta"],[350,"rose"]];
+  let best=names[0],bd=999;
+  for(const n of names){let d=Math.min(Math.abs(h-n[0]),360-Math.abs(h-n[0]));if(d<bd){bd=d;best=n;}}
+  return (dark?"":"pale ")+best[1];
+}
+
+/* ---- helpers ---- */
+function clear(ctx,w,h,pal){ctx.fillStyle=pal.bg;ctx.fillRect(0,0,w,h);}
+
+/* ============================================================
+   RENDERERS — each exposes step(ctx,w,h) returning done:boolean
+   All geometry is normalized then scaled → resolution independent.
+   ============================================================ */
+
+/* Flow field: particles advected through a smooth seeded vector field */
+function makeFlow(rng,pal,density,w,h){
+  clearBg(pal);
+  const octaves=[];
+  const n=rng.int(2,4);
+  for(let i=0;i<n;i++)octaves.push({fx:rng.range(1.2,7),fy:rng.range(1.2,7),p:rng.range(0,7),amp:1/(i+1)});
+  const swirl=rng.range(.4,1.6);
+  function angle(x,y){
+    let a=0;for(const o of octaves)a+=Math.sin(x*o.fx+y*o.fy+o.p)*o.amp;
+    return a*Math.PI*swirl;
+  }
+  const count=Math.round(160+density*230);
+  const life=Math.round(70+density*8);
+  const lw=rng.range(.7,2.2);
+  const alpha=rng.range(.05,.12);
+  const parts=[];
+  for(let i=0;i<count;i++)parts.push(spawn());
+  function spawn(){return {x:rng(),y:rng(),c:rng.pick(pal.colors),age:rng.int(0,life)};}
+  let frame=0,totalFrames=Math.round(life/6)+8;
+  return {name:"Flow",step(ctx){
+    ctx.lineWidth=lw*(w/1080);ctx.lineCap="round";ctx.globalAlpha=alpha;
+    for(let s=0;s<6;s++){
+      for(const p of parts){
+        const a=angle(p.x*3,p.y*3);
+        const nx=p.x+Math.cos(a)*0.0022, ny=p.y+Math.sin(a)*0.0022;
+        ctx.strokeStyle=p.c;
+        ctx.beginPath();ctx.moveTo(p.x*w,p.y*h);ctx.lineTo(nx*w,ny*h);ctx.stroke();
+        p.x=nx;p.y=ny;p.age++;
+        if(p.age>life||p.x<0||p.x>1||p.y<0||p.y>1){Object.assign(p,spawn());}
+      }
+    }
+    ctx.globalAlpha=1;
+    return ++frame>=totalFrames;
+  }};
+  function clearBg(){}
+}
+
+/* Orbit: layered damped harmonographs (lissajous with decay) */
+function makeOrbit(rng,pal,density,w,h){
+  const pens=[];
+  const layers=Math.round(2+density*0.5);
+  for(let i=0;i<layers;i++){
+    pens.push({
+      ax:rng.range(.22,.42),ay:rng.range(.22,.42),
+      fx1:rng.range(1,5),fx2:rng.range(1,5),fy1:rng.range(1,5),fy2:rng.range(1,5),
+      px:rng.range(0,7),py:rng.range(0,7),
+      d1:rng.range(.002,.012),d2:rng.range(.002,.012),
+      c:rng.pick(pal.colors),t:0
+    });
+  }
+  const T=rng.range(90,150);
+  const dt=0.045;
+  const lw=rng.range(.5,1.3);
+  const cx=w/2,cy=h/2;
+  let done=false;
+  return {name:"Orbit",step(ctx){
+    ctx.globalAlpha=0.55;ctx.lineWidth=lw*(w/1080);ctx.lineCap="round";
+    let allDone=true;
+    for(const p of pens){
+      if(p.t>=T)continue;allDone=false;
+      ctx.strokeStyle=p.c;ctx.beginPath();
+      let started=false;const end=Math.min(T,p.t+6);
+      for(let t=p.t;t<end;t+=dt){
+        const e1=Math.exp(-p.d1*t*10),e2=Math.exp(-p.d2*t*10);
+        const x=cx+w*(p.ax*Math.sin(p.fx1*t+p.px)*e1+p.ax*.5*Math.sin(p.fx2*t)*e2);
+        const y=cy+h*(p.ay*Math.sin(p.fy1*t+p.py)*e1+p.ay*.5*Math.sin(p.fy2*t)*e2);
+        if(!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+      }
+      ctx.stroke();p.t=end;
+    }
+    ctx.globalAlpha=1;
+    return allDone;
+  }};
+}
+
+/* Bloom: circle packing */
+function makeBloom(rng,pal,density,w,h){
+  const circles=[];
+  const target=Math.round(120+density*90);
+  const attemptsPerFrame=380;
+  const minR=0.004+ (10-density)*0.0006;
+  const maxR=rng.range(.10,.20);
+  const stroke=rng.chance(.5);
+  let placedTotal=0,tries=0,maxTries=target*60;
+  return {name:"Bloom",step(ctx){
+    let a=0;
+    while(a++<attemptsPerFrame && placedTotal<target && tries<maxTries){
+      tries++;
+      const x=rng(),y=rng();
+      let r=maxR;
+      for(const c of circles){
+        const d=Math.hypot(x-c.x,y-c.y)-c.r;
+        if(d<r)r=d;
+        if(r<minR)break;
+      }
+      r=Math.min(r,x,1-x,y,1-y)-0.002;
+      if(r<minR)continue;
+      const col=rng.pick(pal.colors);
+      circles.push({x,y,r});
+      ctx.beginPath();ctx.arc(x*w,y*h,r*w,0,Math.PI*2);
+      ctx.fillStyle=col;ctx.globalAlpha=rng.range(.55,.95);ctx.fill();ctx.globalAlpha=1;
+      if(stroke){ctx.lineWidth=Math.max(1,r*w*.05);ctx.strokeStyle=pal.bg;ctx.stroke();}
+      placedTotal++;
+    }
+    return placedTotal>=target||tries>=maxTries;
+  }};
+}
+
+/* Strata: recursive rectangular subdivision */
+function makeStrata(rng,pal,density,w,h){
+  const leaves=[];
+  const depth=Math.round(4+density*.7);
+  const gap=rng.range(.004,.012);
+  (function split(x,y,ww,hh,d){
+    const area=ww*hh;
+    if(d<=0||area<0.006||(!rng.chance(0.86)&&d<depth-1)){
+      leaves.push({x,y,w:ww,h:hh,c:rng.pick(pal.colors)});return;
+    }
+    const horiz = ww>hh ? rng.chance(.75):rng.chance(.25);
+    const r=rng.range(.32,.68);
+    if(horiz){split(x,y,ww*r,hh,d-1);split(x+ww*r,y,ww*(1-r),hh,d-1);}
+    else{split(x,y,ww,hh*r,d-1);split(x,y+hh*r,ww,hh*(1-r),d-1);}
+  })(0,0,1,1,depth);
+  rng.pick(leaves).accent=true;
+  let i=0;const perFrame=Math.max(3,Math.round(leaves.length/22));
+  return {name:"Strata",step(ctx){
+    const end=Math.min(leaves.length,i+perFrame);
+    for(;i<end;i++){
+      const L=leaves[i];const g=gap*w;
+      ctx.fillStyle=L.accent?pal.colors[pal.colors.length-1]:L.c;
+      ctx.fillRect(L.x*w+g,L.y*h+g,L.w*w-g*2,L.h*h-g*2);
+    }
+    return i>=leaves.length;
+  }};
+}
+
+const BUILDERS={flow:makeFlow,orbit:makeOrbit,bloom:makeBloom,strata:makeStrata};
+const MODE_ORDER=["flow","orbit","bloom","strata"];
+
+/* ============================================================
+   App
+   ============================================================ */
+const canvas=document.getElementById("art");
+const ctx=canvas.getContext("2d");
+const RES=1080;
+const els={
+  seed:document.getElementById("seed"),
+  dice:document.getElementById("dice"),
+  density:document.getElementById("density"),
+  densityVal:document.getElementById("densityVal"),
+  modes:document.getElementById("modes"),
+  export:document.getElementById("export"),
+  share:document.getElementById("share"),
+  rSeed:document.getElementById("rSeed"),
+  rMode:document.getElementById("rMode"),
+  rPal:document.getElementById("rPal"),
+  toast:document.getElementById("toast"),
+};
+let state={seed:"aurora",mode:"auto",density:6};
+let raf=null, current=null;
+const reduceMotion=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+function resolveMode(rng){
+  if(state.mode!=="auto")return state.mode;
+  return MODE_ORDER[rng.int(0,MODE_ORDER.length-1)];
+}
+
+function render(target,W,H,animate){
+  const rng=makeRng(state.seed+"|"+state.mode+"|"+state.density);
+  const pal=buildPalette(rng);
+  const mode=resolveMode(rng);
+  const tctx=target.getContext("2d");
+  clear(tctx,W,H,pal);
+  const renderer=BUILDERS[mode](rng,pal,state.density,W,H);
+
+  // readouts
+  els.rSeed.textContent=state.seed||"∅";
+  els.rMode.textContent=mode;
+  els.rPal.textContent=pal.name;
+
+  if(animate && !reduceMotion){
+    if(raf)cancelAnimationFrame(raf);
+    const loop=()=>{const done=renderer.step(tctx);if(!done)raf=requestAnimationFrame(loop);};
+    raf=requestAnimationFrame(loop);
+  }else{
+    let guard=0;while(!renderer.step(tctx) && guard++<5000){}
+  }
+}
+
+function draw(){render(canvas,RES,RES,true);}
+
+/* export at 2x for crisp shareable output */
+function exportPNG(){
+  const S=2160;
+  const off=document.createElement("canvas");off.width=S;off.height=S;
+  render(off,S,S,false);
+  const a=document.createElement("a");
+  a.download=`sigil-${(state.seed||"untitled").replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.png`;
+  a.href=off.toDataURL("image/png");a.click();
+  toast("Saved "+a.download);
+}
+
+/* ---- url state ---- */
+function toURL(){
+  const p=new URLSearchParams();
+  p.set("s",state.seed);
+  if(state.mode!=="auto")p.set("m",state.mode);
+  if(state.density!==6)p.set("d",state.density);
+  return location.origin+location.pathname+"?"+p.toString();
+}
+function fromURL(){
+  const p=new URLSearchParams(location.search);
+  if(p.has("s"))state.seed=p.get("s");
+  if(p.has("m")&&BUILDERS[p.get("m")])state.mode=p.get("m");
+  if(p.has("d"))state.density=Math.max(1,Math.min(10,+p.get("d")||6));
+}
+
+/* ---- ui ---- */
+function syncUI(){
+  els.seed.value=state.seed;
+  els.density.value=state.density;
+  els.densityVal.textContent=state.density;
+  [...els.modes.children].forEach(b=>b.classList.toggle("active",b.dataset.mode===state.mode));
+}
+let debounce=null;
+els.seed.addEventListener("input",e=>{
+  state.seed=e.target.value;
+  clearTimeout(debounce);debounce=setTimeout(draw,140);
+});
+els.dice.addEventListener("click",()=>{
+  const words=["aurora","cinder","koi","monsoon","quartz","zephyr","obsidian","marigold","tundra","cascade","nebula","saffron","glacier","vellum","cobalt","persimmon","halcyon","umbra","lattice","driftwood"];
+  const w=makeRng(Date.now()+"").pick(words)+"-"+Math.floor(Math.random()*1000);
+  state.seed=w;syncUI();draw();
+});
+els.density.addEventListener("input",e=>{
+  state.density=+e.target.value;els.densityVal.textContent=state.density;
+  clearTimeout(debounce);debounce=setTimeout(draw,60);
+});
+els.modes.addEventListener("click",e=>{
+  const b=e.target.closest(".mode");if(!b)return;
+  state.mode=b.dataset.mode;syncUI();draw();
+});
+els.export.addEventListener("click",exportPNG);
+els.share.addEventListener("click",async()=>{
+  const url=toURL();
+  try{await navigator.clipboard.writeText(url);toast("Link copied — anyone opening it gets this exact art");}
+  catch{prompt("Copy this link:",url);}
+});
+
+function toast(msg){
+  els.toast.textContent=msg;els.toast.classList.add("show");
+  clearTimeout(toast._t);toast._t=setTimeout(()=>els.toast.classList.remove("show"),2400);
+}
+
+/* set github links (edit these to your repo) */
+const REPO="https://github.com/imjkrao/sigil";
+document.getElementById("ghlink").href=REPO;
+document.getElementById("ghlink2").href=REPO;
+document.getElementById("ghlink2").textContent=REPO.replace("https://","");
+
+/* boot */
+fromURL();syncUI();draw();
+</script>
+</body>
+</html>
