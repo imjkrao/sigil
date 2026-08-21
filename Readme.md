@@ -9,7 +9,7 @@ Type anything — your name, a mood, a password you'll never use — and Sigil t
 **[▶ Live demo](https://imjkrao.github.io/sigil)** · No install · No backend · No tracking · One HTML file
 
 <!-- Replace with a real GIF/screenshot of your art. This is the single most important thing for stars. -->
-<!-- ![Sigil demo](docs/demo.gif) -->
+![Sigil demo](docs/demo.gif)
 
 </div>
 
